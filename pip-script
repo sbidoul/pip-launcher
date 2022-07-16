@@ -8,7 +8,7 @@ directory next to it. It then runs pip in the python environment that was used t
 it, alleviating the need to install pip in the target python environment.
 
 To force dowloading the latest supported pip version, run the script with a single
-`upgrade-pip˘ argument.
+`upgrade-pip` argument.
 
 This script works with python 2.7 and 3.5+.
 
