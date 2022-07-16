@@ -50,8 +50,10 @@ except ImportError:  # python 2
     from urllib2 import urlopen
 
 # The minimum python version required to run https://bootstrap.pypa.io/get-pip.py
+# TODO detect get-pip.py URL automatically by parsing https://bootstrap.pypa.io/pip/
 SUPPORTED_PIP_PY_VERSION = (3, 7)
 
+# TODO use the platform cache directory
 get_pip_cache_dir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "__pip_script_cache__"
 )
