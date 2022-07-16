@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Download and run pip in the current python environment without installing it. 
+
+This script downloads the latest supported pip version in a __pip_script_cache__
+directory next to it. It then runs pip in the python environment that was used to lauch
+this script, alleviating the need to install pip in the target python environment.
+
+To force dowloading the latest supported pip version, run the script with a single
+'upgrade-pip' argument.
+
+This script works with python 2.7 and 3.5+.
+
+Created by Stéphane Bidoul, Based on an idea by Paul Moore
+(https://github.com/pypa/pip/issues/11243)
+
+Copyright (c) 2022 Stéphane Bidoul
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the “Software”), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+"""
+
+from __future__ import print_function
+
+import tempfile
+import os
+import runpy
+import shutil
+import sys
+import subprocess
+
+try:
+    from urllib.request import urlopen
+except ImportError:  # python 2
+    from urllib2 import urlopen
+
+# The minimum python version required to run https://bootstrap.pypa.io/get-pip.py
+SUPPORTED_PIP_PY_VERSION = (3, 7)
+
+get_pip_cache_dir = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "__pip_script_cache__"
+)
+py_version = sys.version_info[:2]
+py_version_str = ".".join(str(v) for v in py_version)
+
+# Determine the local pip directory and the URL of get-pip.py.
+if py_version >= SUPPORTED_PIP_PY_VERSION:
+    pip_root = os.path.join(get_pip_cache_dir, "latest")
+    get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+else:
+    pip_root = os.path.join(get_pip_cache_dir, py_version_str)
+    get_pip_url = "https://bootstrap.pypa.io/pip/{}/get-pip.py".format(py_version_str)
+
+# Do we want to upgrade pip?
+upgrade_pip = sys.argv[1:] == ["upgrade-pip"]
+
+# If upgrading, remove the local pip copy.
+if upgrade_pip and os.path.isdir(pip_root):
+    shutil.rmtree(pip_root)
+
+# Create the local pip directory if it does not exist.
+if not os.path.exists(pip_root):
+    os.makedirs(pip_root)
+
+if not os.path.isdir(os.path.join(pip_root, "pip")):
+    print("Downloading pip to {} using {}...".format(pip_root, get_pip_url))
+    # Download get-pip.py and run it to download pip.
+    get_pip_tmpdir = tempfile.mkdtemp()
+    try:
+        get_pip_tmppath = os.path.join(get_pip_tmpdir, "get-pip.py")
+        get_pip_url_file = urlopen(get_pip_url)
+        try:
+            with open(get_pip_tmppath, "wb") as get_pip_tmppath_file:
+                get_pip_tmppath_file.write(get_pip_url_file.read())
+        finally:
+            get_pip_url_file.close()
+        subprocess.check_call(
+            [sys.executable, get_pip_tmppath, "--quiet", "--target", pip_root]
+        )
+    finally:
+        shutil.rmtree(get_pip_tmpdir)
+    # Remove everything get-pip downloaded except the pip directory, which is all we
+    # need in PYTHONPATH to run pip.
+    for f in os.listdir(pip_root):
+        if f == "pip":
+            continue
+        path = os.path.join(pip_root, f)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.unlink(path)
+
+if not upgrade_pip:
+    # Insert pip in sys.path and run pip.
+    sys.path.insert(0, pip_root)
+    runpy.run_module("pip", run_name="__main__")
