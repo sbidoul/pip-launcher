@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Download and run `pip` in the current python environment without installing it. 
@@ -54,7 +54,7 @@ except ImportError:  # python 2
 SUPPORTED_PIP_PY_VERSION = (3, 7)
 
 # TODO use the platform cache directory
-get_pip_cache_dir = os.path.join(
+pip_script_cache_dir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "__pip_script_cache__"
 )
 py_version = sys.version_info[:2]
@@ -62,10 +62,10 @@ py_version_str = ".".join(str(v) for v in py_version)
 
 # Determine the local pip directory and the URL of get-pip.py.
 if py_version >= SUPPORTED_PIP_PY_VERSION:
-    pip_root = os.path.join(get_pip_cache_dir, "latest")
+    pip_root = os.path.join(pip_script_cache_dir, "latest")
     get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
 else:
-    pip_root = os.path.join(get_pip_cache_dir, py_version_str)
+    pip_root = os.path.join(pip_script_cache_dir, py_version_str)
     get_pip_url = "https://bootstrap.pypa.io/pip/{}/get-pip.py".format(py_version_str)
 
 # Do we want to upgrade pip?
