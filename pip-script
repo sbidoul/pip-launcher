@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Download and run `pip` in the current python environment without installing it. 
@@ -37,21 +37,23 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 from __future__ import print_function
 
-import tempfile
+import contextlib
 import os
 import runpy
 import shutil
-import sys
 import subprocess
+import sys
+import tempfile
+
+try:
+    from html.parser import HTMLParser
+except ImportError:  # python 2
+    from HTMLParser import HTMLParser
 
 try:
     from urllib.request import urlopen
 except ImportError:  # python 2
     from urllib2 import urlopen
-
-# The minimum python version required to run https://bootstrap.pypa.io/get-pip.py
-# TODO detect get-pip.py URL automatically by parsing https://bootstrap.pypa.io/pip/
-SUPPORTED_PIP_PY_VERSION = (3, 7)
 
 # TODO use the platform cache directory
 pip_script_cache_dir = os.path.join(
@@ -59,29 +61,37 @@ pip_script_cache_dir = os.path.join(
 )
 py_version = sys.version_info[:2]
 py_version_str = ".".join(str(v) for v in py_version)
+pip_root = os.path.join(pip_script_cache_dir, py_version_str)
 
-# Determine the local pip directory and the URL of get-pip.py.
-if py_version >= SUPPORTED_PIP_PY_VERSION:
-    pip_root = os.path.join(pip_script_cache_dir, "latest")
-    get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
-else:
-    pip_root = os.path.join(pip_script_cache_dir, py_version_str)
-    get_pip_url = "https://bootstrap.pypa.io/pip/{}/get-pip.py".format(py_version_str)
 
-# Do we want to upgrade pip?
-upgrade_pip = sys.argv[1:] == ["upgrade-pip"]
+class GetPipIndexParser(HTMLParser, object):
+    def __init__(self):
+        super(GetPipIndexParser, self).__init__()
+        self.anchors = []
 
-# If upgrading, remove the local pip copy.
-if upgrade_pip and os.path.isdir(pip_root):
-    shutil.rmtree(pip_root)
+    def handle_starttag(self, tag, attrs):
+        if tag != "a":
+            return
+        for attr_name, attr_value in attrs:
+            if attr_name == "href":
+                self.anchors.append(attr_value)
 
-# Create the local pip directory if it does not exist.
-if not os.path.exists(pip_root):
-    os.makedirs(pip_root)
 
-if not os.path.isdir(os.path.join(pip_root, "pip")):
-    print("Downloading pip to {} using {}...".format(pip_root, get_pip_url))
-    # Download get-pip.py and run it to download pip.
+def get_get_pip_url():
+    bootstrap_url = "https://bootstrap.pypa.io/pip"
+    index = urlopen(bootstrap_url + "/")
+    try:
+        parser = GetPipIndexParser()
+        parser.feed(index.read().decode("utf-8"))
+    finally:
+        index.close()
+    if (py_version_str + "/") in parser.anchors:
+        return "{}/{}/get-pip.py".format(bootstrap_url, py_version_str)
+    return "{}/get-pip.py".format(bootstrap_url)
+
+
+@contextlib.contextmanager
+def download_get_pip(get_pip_url):
     get_pip_tmpdir = tempfile.mkdtemp()
     try:
         get_pip_tmppath = os.path.join(get_pip_tmpdir, "get-pip.py")
@@ -91,12 +101,34 @@ if not os.path.isdir(os.path.join(pip_root, "pip")):
                 get_pip_tmppath_file.write(get_pip_url_file.read())
         finally:
             get_pip_url_file.close()
+        yield get_pip_tmppath
+    finally:
+        shutil.rmtree(get_pip_tmpdir)
+
+
+def download_pip_if_needed():
+    # If the pip directory is present, use it.
+    if os.path.isdir(os.path.join(pip_root, "pip")):
+        return
+
+    # Create the local pip root directory if it does not exist.
+    if not os.path.exists(pip_root):
+        os.makedirs(pip_root)
+
+    get_pip_url = get_get_pip_url()
+
+    print(
+        "Downloading pip to {} using {}...".format(pip_root, get_pip_url),
+        file=sys.stderr,
+    )
+
+    # Download get-pip.py and run it to download and install pip in pip_root.
+    with download_get_pip(get_pip_url) as get_pip_tmppath:
         subprocess.check_call(
             [sys.executable, get_pip_tmppath, "--quiet", "--target", pip_root]
         )
-    finally:
-        shutil.rmtree(get_pip_tmpdir)
-    # Remove everything get-pip downloaded except the pip directory, which is all we
+
+    # Remove everything get-pip.py installed except the pip directory, which is all we
     # need in PYTHONPATH to run pip.
     for f in os.listdir(pip_root):
         if f == "pip":
@@ -107,7 +139,36 @@ if not os.path.isdir(os.path.join(pip_root, "pip")):
         else:
             os.unlink(path)
 
-if not upgrade_pip:
-    # Insert pip in sys.path and run pip.
+
+def upgrade_pip():
+    if os.path.isdir(pip_root):
+        shutil.rmtree(pip_root)
+    download_pip_if_needed()
+
+
+def run_pip():
     sys.path.insert(0, pip_root)
     runpy.run_module("pip", run_name="__main__")
+
+
+def ensure_supported_python():
+    if py_version < (3, 5) and py_version != (2, 7):
+        print(
+            "pip-script does not support python {}.".format(py_version_str),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def main():
+    ensure_supported_python()
+
+    if sys.argv[1:] == ["upgrade-pip"]:
+        upgrade_pip()
+        return
+
+    download_pip_if_needed()
+    run_pip()
+
+
+main()
