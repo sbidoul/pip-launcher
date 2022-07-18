@@ -3,7 +3,7 @@
 """
 Download and run `pip` in the current python environment without installing it. 
 
-This script downloads the latest supported pip version in a `__pip_script_cache__`
+This script downloads the latest supported pip version in a `__pip_launcher_cache__`
 directory next to it. It then runs pip in the python environment that was used to lauch
 it, alleviating the need to install pip in the target python environment.
 
@@ -56,12 +56,12 @@ except ImportError:  # python 2
     from urllib2 import urlopen
 
 # TODO use the platform cache directory
-pip_script_cache_dir = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "__pip_script_cache__"
+pip_launcher_cache_dir = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "__pip_launcher_cache__"
 )
 py_version = sys.version_info[:2]
 py_version_str = ".".join(str(v) for v in py_version)
-pip_root = os.path.join(pip_script_cache_dir, py_version_str)
+pip_root = os.path.join(pip_launcher_cache_dir, py_version_str)
 
 
 class GetPipIndexParser(HTMLParser, object):
@@ -154,7 +154,7 @@ def run_pip():
 def ensure_supported_python():
     if py_version < (3, 5) and py_version != (2, 7):
         print(
-            "pip-script does not support python {}.".format(py_version_str),
+            "pip-launcher does not support python {}.".format(py_version_str),
             file=sys.stderr,
         )
         sys.exit(1)

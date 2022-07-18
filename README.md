@@ -1,8 +1,8 @@
-# pip-script
+# pip-launcher
 
 Download and run `pip` in the current python environment without installing it. 
 
-This script downloads the latest supported pip version in a `__pip_script_cache__`
+This script downloads the latest supported pip version in a `__pip_launcher_cache__`
 directory next to it. It then runs pip in the python environment that was used to lauch
 it, alleviating the need to install pip in the target python environment.
 
