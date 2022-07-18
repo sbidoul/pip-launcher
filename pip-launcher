@@ -129,7 +129,8 @@ def download_pip_if_needed():
         )
 
     # Remove everything get-pip.py installed except the pip directory, which is all we
-    # need in PYTHONPATH to run pip.
+    # need in PYTHONPATH to run pip. In particular, remove the .dist-info directory
+    # so `pip list` does not show what is installed here.
     for f in os.listdir(pip_root):
         if f == "pip":
             continue
