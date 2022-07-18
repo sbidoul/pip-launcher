@@ -1,5 +1,7 @@
 # pip-launcher
 
+⚠️ This is alpha stuff, things may change without notice. ⚠️
+
 Download and run `pip` in the current python environment without installing it. 
 
 This script downloads the latest supported pip version in a `__pip_launcher_cache__`
