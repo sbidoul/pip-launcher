@@ -3,9 +3,9 @@
 """
 Download and run `pip` in the current python environment without installing it. 
 
-This script downloads the latest supported pip version in a `__pip_launcher_cache__`
-directory next to it. It then runs pip in the python environment that was used to lauch
-it, alleviating the need to install pip in the target python environment.
+This script downloads the latest supported pip version in the user cache directory. It
+then runs pip in the python environment that was used to lauch it, alleviating the need
+to install pip in the target python environment.
 
 To force dowloading the latest supported pip version, run the script with a single
 `upgrade-pip` argument.
@@ -55,13 +55,36 @@ try:
 except ImportError:  # python 2
     from urllib2 import urlopen
 
-# TODO use the platform cache directory
-pip_launcher_cache_dir = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "__pip_launcher_cache__"
-)
+APP_NAME = "pip-launcher"
+
+
+def get_win32_cache_dir():
+    return os.path.join(os.environ["LOCALAPPDATA"], APP_NAME, "Cache")
+
+
+def get_darwin_cache_dir():
+    return os.path.expanduser("~/Library/Caches/" + APP_NAME)
+
+
+def get_unix_cache_dir():
+    return os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+        APP_NAME,
+    )
+
+
+def get_cache_dir():
+    if sys.platform == "win32":
+        return get_win32_cache_dir()
+    elif sys.platform == "darwin":
+        return get_darwin_cache_dir()
+    else:
+        return get_unix_cache_dir()
+
+
 py_version = sys.version_info[:2]
 py_version_str = ".".join(str(v) for v in py_version)
-pip_root = os.path.join(pip_launcher_cache_dir, py_version_str)
+pip_root = os.path.join(get_cache_dir(), py_version_str)
 
 
 class GetPipIndexParser(HTMLParser, object):
